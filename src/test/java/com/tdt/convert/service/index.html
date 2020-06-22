@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Add a vector tile source</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    const maxTread = 100;
+
+    // 示例数据
+    var coords = [
+        [[[1,2],[3,4],[11,22],[33,44]]],[[ [5,6], [7,8], [ [10,11],[12,13]] ]], [[[15,16],[51,61]]], [[17,18],[19,20]]
+    ]
+
+    // 解析
+    var tree = {
+        children: []
+    };
+
+    function geoJsonToTree (coords, children, index) {
+
+        var child = {
+            index:index,
+            lngLats: [],
+            children: []
+        };
+
+        children.push(child);
+
+        for(var c = 0, len = coords.length; c < len; c++){
+            var coord = coords[c];
+
+            // 坐标集合
+            if(typeof coord[0] === 'number'){
+                child.lngLats.push({
+                    index: c,
+                    lngLat: coord
+                });
+            } else {
+                geoJsonToTree (coord, child.children, c);
+            }
+        }
+    }
+
+    geoJsonToTree (coords, tree.children, 0);
+
+    // 坐标转换
+    function tiandituToBaidu () {
+
+        function resursive(nodes){
+            for (var n = 0; n < nodes.length; n++) {
+                var node = nodes[n];
+                var lngLats = node.lngLats;
+                var children = node.children;
+
+                // 最大并发100
+                var times = Math.ceil(lngLats/maxTread);
+
+                for(var t = 0; t < times; t++){
+                    var lngLatsSlice = lngLats.slice(maxTread * t, maxTread * t + maxTread);
+
+                    // 100个坐标转换
+                    var lngLatsStr = lngLatsSlice.map(function(lngLat){
+                        return lngLat.lng + ',' + lngLat.lat;
+                    }).join(';');
+
+                    // 开始转换
+                }
+            }
+        }
+
+        resursive(tree.children);
+    }
+
+    // 树转换成geoJson
+    function treeToGeojson (tree) {
+
+        function resursive(nodes){
+
+            var lngLatFlats = [];
+
+            for(var n = 0; n < nodes.length; n++){
+                var node = nodes[n];
+                var index = node.index;
+                var lngLats = node.lngLats;
+                var children = node.children;
+
+                var items = lngLats.concat(children);
+
+                items.sort(function (item1, item2) {
+                    return item1.index - item2.index;
+                });
+
+                for(var i = 0; i < items.length; i++){
+                    var item = items[i];
+
+                    var lngLatFlat;
+
+                    if(item.children && item.children.length > 0){
+                        lngLatFlat = resursive([item]);
+                    } else if(item.lngLats) {
+                        lngLatFlat = item.lngLats.map(function(item){
+                            return item.lngLat;
+                        });
+                    } else if(item.lngLat){
+                        lngLatFlat = item.lngLat;
+                    }
+
+                    if(lngLatFlat){
+                        lngLatFlats.push(lngLatFlat);
+                    } else {
+                        // exception
+                    }
+                }
+            }
+
+            return lngLatFlats;
+        }
+
+        var lngLatFlats = resursive(tree.children);
+
+        console.log(lngLatFlats);
+        return lngLatFlats;
+    }
+
+    treeToGeojson(tree);
+
+    console.log(tree);
+</script>
+
+</body>
+</html>
