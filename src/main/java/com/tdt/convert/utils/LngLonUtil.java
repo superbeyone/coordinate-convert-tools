@@ -11,6 +11,13 @@ public class LngLonUtil {
     private static double ee = 0.00669342162296594323;
 
 
+    public static void main(String[] args) {
+        double lat = 39.895951, lon = 116.296240;
+        int type = 4;
+        double[] transform = transform(lon, lat, type);
+        System.out.println(transform[0]+"\t"+transform[1]);
+    }
+
     /**
      * 转换
      *
@@ -119,12 +126,12 @@ public class LngLonUtil {
      *
      * @param lon 经度
      * @param lat 纬度
-     * @return
+     * @return lon lat
      */
     private static double[] gcj02_To_Gps84(double lon, double lat) {
         double[] gps = transformCommon(lon, lat);
-        double longitude  = lon * 2 - gps[1];
-        double latitude = lat * 2 - gps[0];
+        double longitude  = lon * 2 - gps[0];
+        double latitude = lat * 2 - gps[1];
         return new double[]{longitude , latitude};
     }
 
