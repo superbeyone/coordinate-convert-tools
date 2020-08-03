@@ -171,9 +171,10 @@ public class CoordinateUtil {
                 LngLat lngLat = lngLats.get(i);
                 List<Object> lngLatTmpList = lngLat.getLngLat();
                 //经度
-                BigDecimal lng = (BigDecimal) lngLatTmpList.get(0);
+
+                BigDecimal lng = BigDecimal.valueOf(Double.parseDouble(lngLatTmpList.get(0) + ""));
                 //纬度
-                BigDecimal lat = (BigDecimal) lngLatTmpList.get(1);
+                BigDecimal lat = BigDecimal.valueOf(Double.parseDouble(lngLatTmpList.get(1) + ""));
                 double[] lngLatArr = LngLonUtil.transform(lng.doubleValue(), lat.doubleValue(), tdtConfig.getType());
                 lngLatTmpList.set(0, lngLatArr[0]);
                 lngLatTmpList.set(1, lngLatArr[1]);

@@ -14,10 +14,10 @@ tdt:
   convert:
     charset: GB2312   # 文件读取字符编码 GB2312 UTF-8 GBK
     # geoJson文件根路径
-    input:
+    input: F:\workspace\IDEADev\svn\后台工具\坐标转换工具\input
     # 输出路径
-    output:
-    type: 1
+    output: F:\workspace\IDEADev\svn\后台工具\坐标转换工具\output
+    type: 2
       ############ type 参数说明 ############
       #                                   #
       #            1: 84 转 百度           #
