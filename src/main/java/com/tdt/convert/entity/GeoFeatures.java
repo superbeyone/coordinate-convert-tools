@@ -21,7 +21,7 @@ public class GeoFeatures implements Serializable {
 
     private String id;
 
-    private GeoProperties properties;
+    private Object properties;
 
     private GeoGeometry geometry;
 

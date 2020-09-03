@@ -6,18 +6,15 @@ import com.tdt.convert.commons.TdtConst;
 import com.tdt.convert.config.TdtConfig;
 import com.tdt.convert.entity.GeoFeatures;
 import com.tdt.convert.entity.GeoGeometry;
-import com.tdt.convert.entity.GeoProperties;
 import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.utils.HttpClientUtil;
 import com.tdt.convert.utils.UnicodeReader;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.*;
-import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.time.LocalDateTime;
 import java.util.LinkedList;
@@ -228,7 +225,7 @@ public class GeoJsonTest {
         List<GeoFeatures> baiDuGeoFeatures = new LinkedList<>();
         if (tdtFeatures != null && tdtFeatures.size() > 0) {
             for (GeoFeatures tdtFeature : tdtFeatures) {
-                tdtFeature.setProperties(convertTdtGeoProperties2BaiDu(tdtFeature.getProperties()));
+                tdtFeature.setProperties(tdtFeature.getProperties());
                 tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
                 baiDuGeoFeatures.add(tdtFeature);
@@ -261,54 +258,7 @@ public class GeoJsonTest {
     }
 
 
-    /**
-     * 转换 tdtProperties 为百度
-     *
-     * @param tdtProperties 天地图
-     * @return 百度
-     */
-    private GeoProperties convertTdtGeoProperties2BaiDu(GeoProperties tdtProperties) {
-        GeoProperties baiDuProperties = new GeoProperties();
-
-        //基础信息复制
-        BeanUtils.copyProperties(tdtProperties, baiDuProperties, TdtConst.IGNORE_PROPERTIES);
-
-        //构造基本点坐标
-        StringBuilder builder = new StringBuilder();
-        String lngLatStr = builder.append(tdtProperties.getX()).append(",").append(tdtProperties.getY())
-                .append(";")
-                .append(tdtProperties.getXMAX()).append(",").append(tdtProperties.getYMAX())
-                .append(";")
-                .append(tdtProperties.getXMIN()).append(",").append(tdtProperties.getYMIN()).toString();
-        //获取百度的坐标
-        Object baiDuLngLatObj = getBaiDuLngLat(lngLatStr);
-        if (baiDuLngLatObj instanceof List) {
-            List baiDuLngLatList = (List) baiDuLngLatObj;
-            for (int i = 0; i < (baiDuLngLatList).size(); i++) {
-                JSONObject lngLat = JSON.parseObject(baiDuLngLatList.get(i).toString());
-                //经度
-                BigDecimal x = (BigDecimal) lngLat.get("x");
-                //纬度
-                BigDecimal y = (BigDecimal) lngLat.get("y");
-                switch (i) {
-                    case 0:
-//                        baiDuProperties.setX(x);
-//                        baiDuProperties.setY(y);
-                        break;
-                    case 1:
-//                        baiDuProperties.setXMAX(x);
-//                        baiDuProperties.setYMAX(y);
-                        break;
-                    case 3:
-//                        baiDuProperties.setXMIN(x);
-//                        baiDuProperties.setYMIN(y);
-                        break;
-                    default:
-                }
-            }
-        }
-        return baiDuProperties;
-    }
+    
 
 
     private Object getBaiDuLngLat(String lngLatStr) {

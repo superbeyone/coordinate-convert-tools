@@ -2,26 +2,21 @@ package com.tdt.convert.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.tdt.convert.commons.TdtConst;
 import com.tdt.convert.config.TdtConfig;
 import com.tdt.convert.entity.GeoFeatures;
 import com.tdt.convert.entity.GeoGeometry;
-import com.tdt.convert.entity.GeoProperties;
 import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.service.GeoJsonReaderService;
 import com.tdt.convert.thread.TdtExecutor;
 import com.tdt.convert.utils.CoordinateUtil;
-import com.tdt.convert.utils.LngLonUtil;
 import com.tdt.convert.utils.UnicodeReader;
 import com.tdt.convert.utils.coding.EncodingDetect;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
-import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -102,6 +97,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                         }
                         //处理GeoJson文件
                         readFromGeoJson(file, outFile);
+
                     });
                 }
             } catch (Exception e) {
@@ -116,12 +112,18 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        checkOutPutDir(outPutRoot);
+        log.info("=========================[ 程序执行结束 ]=========================");
+        System.out.println();
+        log.info("=========================[ 程序执行结束 ]=========================");
+        System.out.println();
+        log.info("=========================[ 程序执行结束 ]=========================");
+    }
 
-        log.info("=========================[ 程序执行结束 ]=========================");
-        System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
-        System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
+    private void checkOutPutDir(File outPutDir) {
+        if (outPutDir.exists() && outPutDir.isDirectory() && outPutDir.listFiles().length == 0) {
+            outPutDir.delete();
+        }
     }
 
     /**
@@ -139,7 +141,9 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
             }
         } else {
             String name = inputFile.getName();
-            if (StringUtils.endsWithIgnoreCase(name, ".zip") || StringUtils.endsWithIgnoreCase(name, ".geojson")) {
+            if (StringUtils.endsWithIgnoreCase(name, ".zip")
+                    || StringUtils.endsWithIgnoreCase(name, ".geojson")
+                    || StringUtils.endsWithIgnoreCase(name, ".json")) {
                 files.add(inputFile);
                 log.info("找到文件[ {} ]，并添加到任务队列，当前共 [ {} ]个任务需要处理...", inputFile.getAbsolutePath(), files.size());
             }
@@ -297,7 +301,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 //远程请求百度接口
 //                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuRemote(tdtFeature.getProperties()));
                 //本地算法转换
-                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuLocal(tdtFeature.getProperties()));
+                tdtFeature.setProperties(tdtFeature.getProperties());
 
                 tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
@@ -329,91 +333,6 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         //TODO 转换 tdtCoordinates 为百度
         return coordinateUtil.getBaiDuCoordinates(tdtCoordinates);
     }
-
-
-    /**
-     * 转换 tdtProperties 为百度
-     *
-     * @param tdtProperties 天地图
-     * @return 百度
-     */
-    private GeoProperties convertTdtGeoProperties2BaiDuLocal(GeoProperties tdtProperties) {
-        GeoProperties baiDuProperties = new GeoProperties();
-
-        //基础信息复制
-        BeanUtils.copyProperties(tdtProperties, baiDuProperties, TdtConst.IGNORE_PROPERTIES);
-
-        double x = tdtProperties.getX();
-        double y = tdtProperties.getY();
-        double[] transformXy = LngLonUtil.transform(x, y, type);
-        tdtProperties.setX(transformXy[0]);
-        tdtProperties.setY(transformXy[1]);
-
-        double xmin = tdtProperties.getXMIN();
-        double ymin = tdtProperties.getYMIN();
-        double[] transformXyMin = LngLonUtil.transform(xmin, ymin, type);
-        tdtProperties.setXMIN(transformXyMin[0]);
-        tdtProperties.setYMIN(transformXyMin[1]);
-
-        double xmax = tdtProperties.getXMAX();
-        double ymax = tdtProperties.getYMAX();
-        double[] transformXyMax = LngLonUtil.transform(xmax, ymax, type);
-        tdtProperties.setXMAX(transformXyMax[0]);
-        tdtProperties.setYMAX(transformXyMax[1]);
-
-
-        return baiDuProperties;
-    }
-
-    /**
-     * 转换 tdtProperties 为百度
-     *
-     * @param tdtProperties 天地图
-     * @return 百度
-     */
-    private GeoProperties convertTdtGeoProperties2BaiDuRemote(GeoProperties tdtProperties) {
-        GeoProperties baiDuProperties = new GeoProperties();
-
-        //基础信息复制
-        BeanUtils.copyProperties(tdtProperties, baiDuProperties, TdtConst.IGNORE_PROPERTIES);
-
-        //构造基本点坐标
-        StringBuilder builder = new StringBuilder();
-        String lngLatStr = builder.append(tdtProperties.getX()).append(",").append(tdtProperties.getY())
-                .append(";")
-                .append(tdtProperties.getXMAX()).append(",").append(tdtProperties.getYMAX())
-                .append(";")
-                .append(tdtProperties.getXMIN()).append(",").append(tdtProperties.getYMIN()).toString();
-        //获取百度的坐标
-        Object baiDuLngLatObj = coordinateUtil.getBaiDuLngLat(lngLatStr);
-        if (baiDuLngLatObj instanceof List) {
-            List baiDuLngLatList = (List) baiDuLngLatObj;
-            for (int i = 0; i < (baiDuLngLatList).size(); i++) {
-                JSONObject lngLat = JSON.parseObject(baiDuLngLatList.get(i).toString());
-                //经度
-                BigDecimal x = (BigDecimal) lngLat.get("x");
-                //纬度
-                BigDecimal y = (BigDecimal) lngLat.get("y");
-                switch (i) {
-                    case 0:
-//                        baiDuProperties.setX(x);
-//                        baiDuProperties.setY(y);
-                        break;
-                    case 1:
-//                        baiDuProperties.setXMAX(x);
-//                        baiDuProperties.setYMAX(y);
-                        break;
-                    case 3:
-//                        baiDuProperties.setXMIN(x);
-//                        baiDuProperties.setYMIN(y);
-                        break;
-                    default:
-                }
-            }
-        }
-        return baiDuProperties;
-    }
-
 
     /**
      * 输出Json文件
