@@ -74,7 +74,7 @@ public class TdtConfig {
     }
 
     public String getCharset() {
-        return charset;
+        return StringUtils.isBlank(charset) ? "GB2312" : charset;
     }
 
     public void setCharset(String charset) {

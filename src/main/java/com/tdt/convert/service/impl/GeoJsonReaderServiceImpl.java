@@ -18,9 +18,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -49,29 +46,19 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
     @Autowired
     TdtExecutor tdtExecutor;
 
-    private int type;
 
     private AtomicInteger taskNum = new AtomicInteger(0);
     private AtomicInteger taskCount = new AtomicInteger(0);
 
 
     @Override
-    public void readGeoJson() {
-        type = tdtConfig.getType();
+    public void readGeoJson(List<File> fileList, File outPutRoot) {
         File inputFile = new File(tdtConfig.getInput());
         if (!inputFile.exists()) {
             log.error("源数据文件夹[ {} ]不存在，请确认后，再进行操作......", tdtConfig.getInput());
             return;
         }
-        File outPutDirectory = new File(tdtConfig.getOutput());
 
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        File outPutRoot = new File(outPutDirectory, now);
-        if (!outPutRoot.exists()) {
-            log.info("输出数据文件夹[ {} ]不存在，系统自动创建......\n", outPutRoot.getAbsolutePath());
-            outPutRoot.mkdirs();
-        }
-        List<File> fileList = getZipAndGeoJsonFile(inputFile, new ArrayList<>());
         taskCount.set(fileList.size());
         ExecutorService executorService = tdtExecutor.getExecutorService();
         for (File file : fileList) {
@@ -81,9 +68,9 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
             try {
                 System.out.println();
                 System.out.println();
-                log.info("=====================================================================");
+                log.info("========================== GeoJson ======================================");
                 log.info("||\t\t\t开始处理第 [ {} ]个任务，共 [ {} ]个任务\t\t\t||", num, fileList.size());
-                log.info("=====================================================================\n\n");
+                log.info("========================== GeoJson ==================================\n\n");
                 if (StringUtils.endsWithIgnoreCase(fileName, ".zip")) {
                     //从zip中处理数据
                     readFromZip(file, outPutRoot, executorService);
@@ -112,43 +99,8 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        checkOutPutDir(outPutRoot);
-        log.info("=========================[ 程序执行结束 ]=========================");
-        System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
-        System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
-    }
 
-    private void checkOutPutDir(File outPutDir) {
-        if (outPutDir.exists() && outPutDir.isDirectory() && outPutDir.listFiles().length == 0) {
-            outPutDir.delete();
-        }
-    }
 
-    /**
-     * 查找所有的zip和 geoJson 文件
-     *
-     * @param inputFile 输入文件夹
-     * @param files     集合
-     * @return 结果集
-     */
-    private List<File> getZipAndGeoJsonFile(File inputFile, List<File> files) {
-        if (inputFile.isDirectory()) {
-            File[] listFiles = inputFile.listFiles();
-            for (File file : listFiles) {
-                getZipAndGeoJsonFile(file, files);
-            }
-        } else {
-            String name = inputFile.getName();
-            if (StringUtils.endsWithIgnoreCase(name, ".zip")
-                    || StringUtils.endsWithIgnoreCase(name, ".geojson")
-                    || StringUtils.endsWithIgnoreCase(name, ".json")) {
-                files.add(inputFile);
-                log.info("找到文件[ {} ]，并添加到任务队列，当前共 [ {} ]个任务需要处理...", inputFile.getAbsolutePath(), files.size());
-            }
-        }
-        return files;
     }
 
 
@@ -191,7 +143,6 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
      * @param outPutRoot 输出路径
      */
     private void readFromZip(File file, File outPutRoot, ExecutorService executorService) {
-        BufferedReader reader = null;
         int count = getGeoJsonFileCount(file);
         if (count == 0) {
             log.info("ZIP 文件[ {} ]下没有找到GeoJson文件，该ZIP不做处理", file.getAbsolutePath());
@@ -209,19 +160,12 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 if (!entry.isDirectory()) {
                     if (StringUtils.endsWithIgnoreCase(entry.getName(), ".geoJson")) {
                         log.info("\t--- 开始处理该ZIP下第[ {} ]个GeoJson文件，共[ {} ]个GeoJson文件\t\t当前执行第[ {} ]个任务，共[ {} ]个任务", index.getAndIncrement(), count, taskNum, taskCount);
-                        readGeoJsonData(zin, entry.getName(), reader, outPutRoot, executorService);
+                        readGeoJsonData(zin, entry.getName(), outPutRoot, executorService);
                     }
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
-        }
-        if (reader != null) {
-            try {
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -251,9 +195,9 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         return count;
     }
 
-    private void readGeoJsonData(InputStream inputStream, String entryName, BufferedReader reader, File outPutRoot, ExecutorService executorService) {
-        try {
-            reader = new BufferedReader(new UnicodeReader(inputStream, tdtConfig.getCharset()));
+    private void readGeoJsonData(InputStream inputStream, String entryName, File outPutRoot, ExecutorService executorService) {
+        try (BufferedReader reader = new BufferedReader(new UnicodeReader(inputStream, tdtConfig.getCharset()));) {
+
             String line;
             StringBuilder lineBuilder = new StringBuilder();
             while ((line = reader.readLine()) != null) {
@@ -347,6 +291,18 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public String convertGeoJson(String geoJson, String path) {
+        GeoRegion geoRegion = JSONObject.parseObject(geoJson, GeoRegion.class);
+
+
+        log.info("开始转换文件 [ {} ]", path);
+        //经纬度转换
+        geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, path);
+        log.info("结束转换文件 [ {} ]", path);
+        return JSON.toJSONString(geoRegion);
     }
 
 }

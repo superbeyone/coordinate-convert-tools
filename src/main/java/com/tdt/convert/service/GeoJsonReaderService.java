@@ -1,5 +1,8 @@
 package com.tdt.convert.service;
 
+import java.io.File;
+import java.util.List;
+
 /**
  * @author Mr.superbeyone
  * @project coordinate-convert-tools
@@ -10,6 +13,8 @@ package com.tdt.convert.service;
 
 public interface GeoJsonReaderService {
 
-    void readGeoJson();
+    void readGeoJson(List<File> fileList,File outPutRoot);
+
+    String convertGeoJson(String geoJson,String path);
 
 }

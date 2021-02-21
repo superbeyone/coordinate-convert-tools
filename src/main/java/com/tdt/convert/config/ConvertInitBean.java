@@ -1,6 +1,6 @@
 package com.tdt.convert.config;
 
-import com.tdt.convert.service.GeoJsonReaderService;
+import com.tdt.convert.service.ConvertService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,12 +17,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConvertInitBean implements InitializingBean {
 
+
     @Autowired
-    GeoJsonReaderService geoJsonReaderService;
+    ConvertService convertService;
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        log.info("系统初始化完成.....");
-        geoJsonReaderService.readGeoJson();
+        convertService.convertFile();
     }
 }
