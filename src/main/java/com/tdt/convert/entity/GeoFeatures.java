@@ -25,12 +25,5 @@ public class GeoFeatures implements Serializable {
 
     private GeoGeometry geometry;
 
-    @Override
-    public String toString() {
-        return "{\"type\":\"" + type +
-                "\", \"id\":\"" + id +
-                "\", \"properties\":\"" + properties +
-                "\", \"geometry\":\"" + geometry +
-                "\"}";
-    }
+    
 }

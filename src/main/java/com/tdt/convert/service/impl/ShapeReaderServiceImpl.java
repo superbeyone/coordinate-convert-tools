@@ -70,22 +70,27 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
             int num = taskNum.incrementAndGet();
             System.out.println();
             System.out.println();
-            log.info("========================== Shape ======================================");
+            log.info("===================== Shape ===============================");
             log.info("||\t\t\t开始处理第 [ {} ]个任务，共 [ {} ]个任务\t\t\t||", num, shpList.size());
-            log.info("========================== Shape ==================================\n\n");
+            log.info("===================== Shape ===============================\n\n");
             String absolutePath = file.getAbsolutePath();
+            if (StringUtils.contains(input, "/")) {
+                input = StringUtils.replace(input, "/", "\\");
+            }
             String filePath = StringUtils.substringAfter(absolutePath, input);
-            File shapeFile = new File(outPutRoot, filePath);
+            File outputShapeFile = new File(outPutRoot, filePath);
             String geoJson = convertShp2GeoJson(file, charset);
 
-            String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath);
+            String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath, num, shpList.size());
             //输出shape
-            geoJson2Shape(resultJson, shapeFile);
+            geoJson2Shape(resultJson, outputShapeFile);
         }
     }
 
 
     private String convertShp2GeoJson(File file, String charset) {
+        log.info("Shape文件[ {} ] 转 GeoJson 开始", file.getAbsolutePath());
+
         StringWriter writer = new StringWriter();
         try {
             ShapefileDataStore shapefileDataStore = new ShapefileDataStore(file.toURI().toURL());
@@ -100,6 +105,7 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        log.info("Shape文件[ {} ] 转 GeoJson 完成", file.getAbsolutePath());
         return writer.toString();
     }
 
@@ -109,12 +115,12 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
         if (!StringUtils.endsWithIgnoreCase(fileName, ".shp")) {
             file = new File(file.getParentFile(), fileName + ".shp");
         }
-        GeometryJSON geojson = new GeometryJSON();
+        GeometryJSON geojson = new GeometryJSON(20);
         try {
             Map<String, Object> geojsonMap = JSONObject.parseObject(geojsonStr, Map.class);
             List<Map> features = (List<Map>) geojsonMap.get("features");
-            Map geojsonExemple = features.get(0);
-            String geojsonType = ((Map) geojsonExemple.get("geometry")).get("type").toString();
+            Map geojsonExample = features.get(0);
+            String geojsonType = ((Map) geojsonExample.get("geometry")).get("type").toString();
             Map<String, Class> mapFields = new HashMap();
             for (int i = 0; i < features.size(); i++) {
                 Map<String, Object> attributes = (Map<String, Object>) features.get(i).get("properties");
@@ -209,8 +215,9 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
     }
 
     private static void generateCpgFile(File root) {
-        String fileName = StringUtils.substringBefore(root.getName(), ".");
-        File file = new File(root, fileName + ".cpg");
+        String filename = root.getName();
+        String name = StringUtils.substringBefore(filename, ".");
+        File file = new File(StringUtils.endsWithIgnoreCase(filename, ".shp") ? root.getParentFile() : root, name + ".cpg");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             writer.write("GBK,GB2312,UTF-8");
             writer.flush();

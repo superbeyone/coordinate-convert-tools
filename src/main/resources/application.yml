@@ -5,19 +5,19 @@ spring:
     name: convert-tools
 logging:
   level:
-    root: info
+    root: debug
     
     
   ######################## 自定义配置 #####################################
 
 tdt:
   convert:
-    charset: GB2312   # 文件读取字符编码 GB2312 UTF-8 GBK
+    charset: UTF-8   # 文件读取字符编码 GB2312 UTF-8 GBK
     # geoJson文件根路径
-    input: 
+    input: E:\data\shp\test\input\osm
     # 输出路径
-    output: 
-    type: 1
+    output: E://data//shp//test//output
+    type: 3
       ############ type 参数说明 ############
       #                                   #
       #            1: 84 转 百度           #

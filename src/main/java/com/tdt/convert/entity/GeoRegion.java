@@ -23,11 +23,5 @@ public class GeoRegion implements Serializable {
     private String type;
 
     private List<GeoFeatures> features;
-
-    @Override
-    public String toString() {
-        return "{\"type\":\"" + type + "\"" +
-                ", \"features\":" + features +
-                '}';
-    }
+    
 }

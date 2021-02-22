@@ -15,6 +15,6 @@ public interface GeoJsonReaderService {
 
     void readGeoJson(List<File> fileList,File outPutRoot);
 
-    String convertGeoJson(String geoJson,String path);
+    String convertGeoJson(String geoJson,String path,int num ,int count);
 
 }

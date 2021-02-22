@@ -20,7 +20,9 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
@@ -222,17 +224,20 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         return tdtGeoRegion;
     }
 
+
     private List<GeoFeatures> convertTdtGeoFeatures2BaiDu(List<GeoFeatures> tdtFeatures, String entryName) {
         List<GeoFeatures> baiDuGeoFeatures = new LinkedList<>();
         if (tdtFeatures != null && tdtFeatures.size() > 0) {
             int num = 0;
             ExecutorService executorService = tdtExecutor.getExecutorService();
+            List<Future<GeoFeatures>> futures = new LinkedList<>();
             for (GeoFeatures tdtFeature : tdtFeatures) {
                 num++;
                 int finalNum = num;
-                executorService.execute(() -> {
+                Future<GeoFeatures> future = executorService.submit(() -> {
 
-                    log.info("\t\t\t--- 开始处理第[ {} ]条数据,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    log.info("\t\t\t--- 开始处理第[ {} ]条要素,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
+                            finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
                     //远程请求百度接口
 //                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuRemote(tdtFeature.getProperties()));
                     //本地算法转换
@@ -240,10 +245,25 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
 
                     tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
-                    baiDuGeoFeatures.add(tdtFeature);
-                    log.info("\t\t\t--- 第[ {} ]条数据处理完成,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+
+                    log.info("\t\t\t### 第[ {} ]条要素处理完成,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    return tdtFeature;
                 });
+                futures.add(future);
             }
+
+            log.info("tdtFeatures:[ {} ],\t futures:[{}]", tdtFeatures.size(), futures.size());
+            for (Future<GeoFeatures> future : futures) {
+                try {
+                    GeoFeatures tdtFeature = future.get();
+                    baiDuGeoFeatures.add(tdtFeature);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                }
+            }
+
 
             try {
                 executorService.shutdown();
@@ -293,12 +313,18 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
     }
 
     @Override
-    public String convertGeoJson(String geoJson, String path) {
+    public String convertGeoJson(String geoJson, String path, int num, int count) {
+        log.info("Shape文件[ {} ] GeoJson 转 Java 对象", path);
         GeoRegion geoRegion = JSONObject.parseObject(geoJson, GeoRegion.class);
-        log.info("开始转换文件 [ {} ]", path);
+        this.taskNum.set(num);
+        this.taskCount.set(count);
+        log.info("开始坐标转换，文件 [ {} ]", path);
         //经纬度转换
         geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, path);
-        log.info("结束转换文件 [ {} ]", path);
+        log.info("完成坐标转换，文件 [ {} ]", path);
+        if (geoRegion == null) {
+            System.out.println("-------------");
+        }
         return JSON.toJSONString(geoRegion);
     }
 

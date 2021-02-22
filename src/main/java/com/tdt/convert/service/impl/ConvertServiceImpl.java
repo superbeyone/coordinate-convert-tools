@@ -3,7 +3,7 @@ package com.tdt.convert.service.impl;
 import com.tdt.convert.config.TdtConfig;
 import com.tdt.convert.service.ConvertService;
 import com.tdt.convert.service.GeoJsonReaderService;
-import com.tdt.convert.service.ShapeReaderService;
+import com.tdt.convert.service.ShapeBigReaderService;
 import com.tdt.convert.thread.TdtExecutor;
 import com.tdt.convert.utils.CoordinateUtil;
 import com.tdt.convert.utils.FileUtil;
@@ -41,7 +41,7 @@ public class ConvertServiceImpl implements ConvertService {
     @Autowired
     GeoJsonReaderService geoJsonReaderService;
     @Autowired
-    ShapeReaderService shapeReaderService;
+    ShapeBigReaderService shapeReaderService;
 
     @Override
     public void convertFile() {
