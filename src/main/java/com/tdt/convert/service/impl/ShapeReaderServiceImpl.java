@@ -28,8 +28,6 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -68,7 +66,6 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
         String charset = tdtConfig.getCharset();
         String input = tdtConfig.getInput();
         taskCount.set(shpList.size());
-        ExecutorService executorService = tdtExecutor.getExecutorService();
         for (File file : shpList) {
             int num = taskNum.incrementAndGet();
             System.out.println();
@@ -77,24 +74,14 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
             log.info("||\t\t\t开始处理第 [ {} ]个任务，共 [ {} ]个任务\t\t\t||", num, shpList.size());
             log.info("========================== Shape ==================================\n\n");
             String absolutePath = file.getAbsolutePath();
-            executorService.execute(() -> {
-                String filePath = StringUtils.substringAfter(absolutePath, input);
-                File shapeFile = new File(outPutRoot, filePath);
-                String geoJson = convertShp2GeoJson(file, charset);
+            String filePath = StringUtils.substringAfter(absolutePath, input);
+            File shapeFile = new File(outPutRoot, filePath);
+            String geoJson = convertShp2GeoJson(file, charset);
 
-                String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath);
-                //输出shape
-                geoJson2Shape(resultJson, shapeFile);
-            });
+            String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath);
+            //输出shape
+            geoJson2Shape(resultJson, shapeFile);
         }
-
-        try {
-            executorService.shutdown();
-            executorService.awaitTermination(Integer.MAX_VALUE, TimeUnit.DAYS);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
     }
 
 

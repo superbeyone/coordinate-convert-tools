@@ -60,7 +60,6 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         }
 
         taskCount.set(fileList.size());
-        ExecutorService executorService = tdtExecutor.getExecutorService();
         for (File file : fileList) {
 
             String fileName = file.getName();
@@ -73,9 +72,8 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 log.info("========================== GeoJson ==================================\n\n");
                 if (StringUtils.endsWithIgnoreCase(fileName, ".zip")) {
                     //从zip中处理数据
-                    readFromZip(file, outPutRoot, executorService);
+                    readFromZip(file, outPutRoot);
                 } else {
-                    executorService.execute(() -> {
                         String entryName = StringUtils.substringAfter(file.getAbsolutePath(), inputFile.getAbsolutePath());
                         File outFile = new File(outPutRoot, entryName);
                         File parentFile = outFile.getParentFile();
@@ -84,20 +82,11 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                         }
                         //处理GeoJson文件
                         readFromGeoJson(file, outFile);
-
-                    });
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
-        }
-
-        try {
-            executorService.shutdown();
-            executorService.awaitTermination(Integer.MAX_VALUE, TimeUnit.DAYS);
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
 
@@ -142,7 +131,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
      * @param file       zip文件
      * @param outPutRoot 输出路径
      */
-    private void readFromZip(File file, File outPutRoot, ExecutorService executorService) {
+    private void readFromZip(File file, File outPutRoot) {
         int count = getGeoJsonFileCount(file);
         if (count == 0) {
             log.info("ZIP 文件[ {} ]下没有找到GeoJson文件，该ZIP不做处理", file.getAbsolutePath());
@@ -160,7 +149,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 if (!entry.isDirectory()) {
                     if (StringUtils.endsWithIgnoreCase(entry.getName(), ".geoJson")) {
                         log.info("\t--- 开始处理该ZIP下第[ {} ]个GeoJson文件，共[ {} ]个GeoJson文件\t\t当前执行第[ {} ]个任务，共[ {} ]个任务", index.getAndIncrement(), count, taskNum, taskCount);
-                        readGeoJsonData(zin, entry.getName(), outPutRoot, executorService);
+                        readGeoJsonData(zin, entry.getName(), outPutRoot);
                     }
                 }
             }
@@ -195,7 +184,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         return count;
     }
 
-    private void readGeoJsonData(InputStream inputStream, String entryName, File outPutRoot, ExecutorService executorService) {
+    private void readGeoJsonData(InputStream inputStream, String entryName, File outPutRoot) {
         try (BufferedReader reader = new BufferedReader(new UnicodeReader(inputStream, tdtConfig.getCharset()));) {
 
             String line;
@@ -203,21 +192,19 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
             while ((line = reader.readLine()) != null) {
                 lineBuilder.append(line);
             }
-            executorService.execute(() -> {
-                GeoRegion geoRegion = JSONObject.parseObject(lineBuilder.toString(), GeoRegion.class);
-                File outFile = new File(outPutRoot, entryName);
-                File parentFile = outFile.getParentFile();
-                if (!parentFile.exists()) {
-                    parentFile.mkdirs();
-                }
-                log.info("\t\t--- 开始转换文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
-                //经纬度转换
-                geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, entryName);
-                log.info("\t\t--- 结束转换文件 [ {} ],开始输出结果文件 \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
-                //输出文件
-                exportGeoJsonFile(outFile, geoRegion);
-                log.info("\t\t--- 输出成功，文件路径 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务\n\n", outFile.getAbsolutePath(), taskNum, taskCount);
-            });
+            GeoRegion geoRegion = JSONObject.parseObject(lineBuilder.toString(), GeoRegion.class);
+            File outFile = new File(outPutRoot, entryName);
+            File parentFile = outFile.getParentFile();
+            if (!parentFile.exists()) {
+                parentFile.mkdirs();
+            }
+            log.info("\t\t--- 开始转换文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
+            //经纬度转换
+            geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, entryName);
+            log.info("\t\t--- 结束转换文件 [ {} ],开始输出结果文件 \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
+            //输出文件
+            exportGeoJsonFile(outFile, geoRegion);
+            log.info("\t\t--- 输出成功，文件路径 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务\n\n", outFile.getAbsolutePath(), taskNum, taskCount);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -239,18 +226,30 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
         List<GeoFeatures> baiDuGeoFeatures = new LinkedList<>();
         if (tdtFeatures != null && tdtFeatures.size() > 0) {
             int num = 0;
+            ExecutorService executorService = tdtExecutor.getExecutorService();
             for (GeoFeatures tdtFeature : tdtFeatures) {
                 num++;
-                log.info("\t\t\t--- 开始处理第[ {} ]条数据,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", num, tdtFeatures.size(), entryName, taskNum, taskCount);
-                //远程请求百度接口
+                int finalNum = num;
+                executorService.execute(() -> {
+
+                    log.info("\t\t\t--- 开始处理第[ {} ]条数据,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    //远程请求百度接口
 //                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuRemote(tdtFeature.getProperties()));
-                //本地算法转换
-                tdtFeature.setProperties(tdtFeature.getProperties());
+                    //本地算法转换
+                    tdtFeature.setProperties(tdtFeature.getProperties());
 
-                tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
+                    tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
-                baiDuGeoFeatures.add(tdtFeature);
-                log.info("\t\t\t--- 第[ {} ]条数据处理完成,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", num, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    baiDuGeoFeatures.add(tdtFeature);
+                    log.info("\t\t\t--- 第[ {} ]条数据处理完成,共[ {} ]条数据,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                });
+            }
+
+            try {
+                executorService.shutdown();
+                executorService.awaitTermination(2, TimeUnit.DAYS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
         return baiDuGeoFeatures;
@@ -296,8 +295,6 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
     @Override
     public String convertGeoJson(String geoJson, String path) {
         GeoRegion geoRegion = JSONObject.parseObject(geoJson, GeoRegion.class);
-
-
         log.info("开始转换文件 [ {} ]", path);
         //经纬度转换
         geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, path);

@@ -218,7 +218,7 @@ public class LngLonUtil {
         if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271) {
             return true;
         }
-        return false;
+        return true;
     }
 }
 
