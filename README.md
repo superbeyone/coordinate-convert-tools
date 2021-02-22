@@ -1,5 +1,5 @@
 # 坐标转换工具
- 读取 GeoJson 文件，转换其坐标信息，并生成转换后的 GeoJson文件
+ 读取 GeoJson \ Shape 文件，转换其坐标信息，并生成转换后的 GeoJson \ Shape 文件
 
 支持
 
