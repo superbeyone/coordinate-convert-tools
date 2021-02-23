@@ -5,7 +5,7 @@ spring:
     name: convert-tools
 logging:
   level:
-    root: debug
+    root: info
     
     
   ######################## 自定义配置 #####################################
@@ -14,7 +14,7 @@ tdt:
   convert:
     charset: UTF-8   # 文件读取字符编码 GB2312 UTF-8 GBK
     # geoJson文件根路径
-    input: E:\data\shp\test\input\osm
+    input: E:\data\shp\test\input\roads
     # 输出路径
     output: E://data//shp//test//output
     type: 3

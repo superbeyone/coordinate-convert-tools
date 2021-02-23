@@ -70,7 +70,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 System.out.println();
                 System.out.println();
                 log.info("========================== GeoJson ======================================");
-                log.info("||\t\t\t开始处理第 [ {} ]个任务，共 [ {} ]个任务\t\t\t||", num, fileList.size());
+                log.info("||\t\t\t开始处理第 [ {} / {} ]个任务\t\t\t||", num, fileList.size());
                 log.info("========================== GeoJson ==================================\n\n");
                 if (StringUtils.endsWithIgnoreCase(fileName, ".zip")) {
                     //从zip中处理数据
@@ -200,13 +200,13 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
             if (!parentFile.exists()) {
                 parentFile.mkdirs();
             }
-            log.info("\t\t--- 开始转换文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
+            log.info("\t-- 开始转换文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
             //经纬度转换
             geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, entryName);
-            log.info("\t\t--- 结束转换文件 [ {} ],开始输出结果文件 \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
+            log.info("\t-- 结束转换文件 [ {} ],开始输出结果文件 \t当前执行第[ {} ]个任务,共[ {} ]个任务", entryName, taskNum, taskCount);
             //输出文件
             exportGeoJsonFile(outFile, geoRegion);
-            log.info("\t\t--- 输出成功，文件路径 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务\n\n", outFile.getAbsolutePath(), taskNum, taskCount);
+            log.info("\t-- 输出成功，文件路径 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务\n\n", outFile.getAbsolutePath(), taskNum, taskCount);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -236,7 +236,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 int finalNum = num;
                 Future<GeoFeatures> future = executorService.submit(() -> {
 
-                    log.info("\t\t\t--- 开始处理第[ {} ]条要素,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
+                    log.info("\t--- 开始处理第[ {} ]条要素,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
                             finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
                     //远程请求百度接口
 //                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuRemote(tdtFeature.getProperties()));
@@ -246,7 +246,7 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                     tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
 
-                    log.info("\t\t\t### 第[ {} ]条要素处理完成,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    log.info("\t### 第[ {} ]条要素处理完成,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
                     return tdtFeature;
                 });
                 futures.add(future);

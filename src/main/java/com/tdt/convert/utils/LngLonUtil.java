@@ -12,10 +12,15 @@ public class LngLonUtil {
 
 
     public static void main(String[] args) {
-        double lat = 39.895951, lon = 116.296240;
-        int type = 4;
+        double lat = 39.990475, lon = 116.481499;//116.481499,39.990475
+        int type = 3;
         double[] transform = transform(lon, lat, type);
-        System.out.println(transform[0]+"\t"+transform[1]);
+        System.out.println(transform[0] + "\t" + transform[1]);
+
+        transform = transform(transform[1], transform[0], 4);
+        System.out.println(transform[0] + "\t" + transform[1]);
+
+
     }
 
     /**
@@ -216,9 +221,10 @@ public class LngLonUtil {
      */
     private static boolean outOfChina(double lon, double lat) {
         if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271) {
-            return true;
+//            return true;
+            return false;
         }
-        return true;
+        return false;
     }
 }
 

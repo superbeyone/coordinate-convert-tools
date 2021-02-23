@@ -50,6 +50,7 @@ public class ConvertServiceImpl implements ConvertService {
             log.error("源数据文件夹[ {} ]不存在，请确认后，再进行操作......", tdtConfig.getInput());
             return;
         }
+        long start = System.currentTimeMillis();
         List<File> fileList = getFileFromZip(inputFile, new ArrayList<>());
 
         log.info("系统初始化完成.....");
@@ -86,11 +87,12 @@ public class ConvertServiceImpl implements ConvertService {
 
         checkOutPutDir(outPutRoot);
 
-        log.info("=========================[ 程序执行结束 ]=========================");
+        long end = System.currentTimeMillis();
+        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
         System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
+        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
         System.out.println();
-        log.info("=========================[ 程序执行结束 ]=========================");
+        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
 
     }
 

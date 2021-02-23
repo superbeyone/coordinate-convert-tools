@@ -29,6 +29,9 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -56,7 +59,7 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
     private AtomicInteger taskNum = new AtomicInteger(0);
     private AtomicInteger taskCount = new AtomicInteger(0);
 
-    private static final int SINGLE_FILE_COUNT = 1000;
+    private static int SINGLE_FILE_COUNT = 2000;
 
     private static final int DECIMALS = 20;
 
@@ -73,37 +76,80 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
         taskCount.set(shpList.size());
         for (File file : shpList) {
             int num = taskNum.incrementAndGet();
+            long start = System.currentTimeMillis();
             System.out.println();
             System.out.println();
             log.info("===================== Shape ===============================");
-            log.info("||\t\t\t开始处理第 [ {} ]个任务，共 [ {} ]个任务\t\t\t||", num, shpList.size());
+            log.info("||\t\t\t开始处理第 [ {} / {} ]个任务\t\t\t||", num, shpList.size());
             log.info("===================== Shape ===============================\n\n");
             String absolutePath = file.getAbsolutePath();
             if (StringUtils.contains(input, "/")) {
                 input = StringUtils.replace(input, "/", "\\");
             }
             String filePath = StringUtils.substringAfter(absolutePath, input);
-            File outputShapeFile = new File(outPutRoot, filePath);
-            List<String> geoJsonList = convertShp2GeoJson(file, charset);
 
-            List<String> resultJsonList = new ArrayList<>(geoJsonList.size());
-            for (String geoJson : geoJsonList) {
+            File outPutRoot_1_2 = new File(outPutRoot, StringUtils.substringBefore(file.getName(), "."));
 
-                String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath, num, shpList.size());
-                resultJsonList.add(resultJson);
-            }
+            File geoJsonDir = new File(outPutRoot_1_2, "step_1_shp2geojson_dir");
+            File convertedGeoJsonDir = new File(outPutRoot_1_2, "step_2_converted_geojson_dir");
+            File convertShpDir = new File(outPutRoot, "step_3_convert_shp_dir");
+
+            geoJsonDir.mkdirs();
+            convertedGeoJsonDir.mkdirs();
+            convertShpDir.mkdirs();
+
+            File outputShapeFile = new File(convertShpDir, filePath);
+            convertShp2GeoJson(file, charset, geoJsonDir);
+
+
+            convertGeoJson(shpList, num, geoJsonDir, convertedGeoJsonDir);
 
             //输出shape
-            geoJson2Shape(resultJsonList, outputShapeFile);
+            geoJson2Shape(convertedGeoJsonDir, outputShapeFile);
+
+
+            System.out.println();
+            System.out.println();
+            log.info("===================== Shape ===============================");
+            log.info("||\t\t\t处理完成第 [ {} / {} ]个任务\t\t\t||", num, shpList.size());
+            log.info("||\t\t\t 耗时[ {} ] 毫秒 \t\t\t||", System.currentTimeMillis() - start);
+            log.info("===================== Shape ===============================\n\n");
+
         }
     }
 
-    private List<String> convertShp2GeoJson(File file, String charset) {
+    private void convertGeoJson(List<File> shpList, int num, File geoJsonDir, File convertedGeoJsonDir) {
+
+        if (geoJsonDir.isDirectory()) {
+            File[] srcGeoJsonFileArr = geoJsonDir.listFiles();
+            if (srcGeoJsonFileArr != null && srcGeoJsonFileArr.length > 0) {
+                for (int i = 0; i < srcGeoJsonFileArr.length; i++) {
+                    File srcGeoJsonFile = srcGeoJsonFileArr[i];
+                    StringBuilder builder = new StringBuilder();
+                    try (BufferedReader reader = new BufferedReader(new FileReader(srcGeoJsonFile));
+                         OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(new File(convertedGeoJsonDir, srcGeoJsonFile.getName())))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            builder.append(line);
+                        }
+                        log.info("开始坐标转换 [ {} / {} ]，文件[ {} ]", i + 1, srcGeoJsonFileArr.length, srcGeoJsonFile.getAbsolutePath());
+                        String resultJson = geoJsonReaderService.convertGeoJson(builder.toString(), srcGeoJsonFile.getAbsolutePath(), num, shpList.size());
+                        outputStream.write(resultJson.getBytes());
+                        outputStream.flush();
+                        log.info("坐标转换完成 [ {} / {} ]，文件[ {} ]", i + 1, srcGeoJsonFileArr.length, srcGeoJsonFile.getAbsolutePath());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    private void convertShp2GeoJson(File file, String charset, File geoJsonDir) {
         log.info("Shape文件[ {} ] 转 GeoJson 开始", file.getAbsolutePath());
 
-        List<String> geoJsonList = new ArrayList<>();
-        StringWriter writer = new StringWriter();
         try {
+
             ShapefileDataStore shapefileDataStore = new ShapefileDataStore(file.toURI().toURL());
             shapefileDataStore.setCharset(Charset.forName(charset));
 
@@ -114,40 +160,68 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             SimpleFeatureIterator iterator = features.features();
             List<SimpleFeature> simpleFeatures = new LinkedList<>();
             SimpleFeatureType featureType = null;
+            AtomicInteger index = new AtomicInteger(0);
+            int count = features.size() / SINGLE_FILE_COUNT;
+            count = features.size() % SINGLE_FILE_COUNT == 0 ? count : count + 1;
+
+            ExecutorService executorService = tdtExecutor.getExecutorService();
+            List<Future<Boolean>> futures = new ArrayList<>();
             while (iterator.hasNext()) {
                 if (simpleFeatures.size() == SINGLE_FILE_COUNT) {
-                    SimpleFeatureCollection collection = new ListFeatureCollection(featureType, simpleFeatures);
-                    featureJSON.writeFeatureCollection(collection, writer);
-                    String geoJson = writer.toString();
-                    geoJsonList.add(geoJson);
+                    int finalCount = count;
+                    SimpleFeatureType finalFeatureType = featureType;
+                    List<SimpleFeature> finalSimpleFeatures = simpleFeatures;
+                    Future<Boolean> future = executorService.submit(() -> {
+                        try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(new File(geoJsonDir, index.getAndIncrement() + ".geojson")))) {
+                            log.info("拆分文件[ {} / {} ]，文件[ {} ]", index.get(), finalCount, file.getAbsolutePath());
+                            SimpleFeatureCollection collection = new ListFeatureCollection(finalFeatureType, finalSimpleFeatures);
+                            featureJSON.writeFeatureCollection(collection, outputStream);
+                            outputStream.flush();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        return true;
+                    });
+                    futures.add(future);
                     simpleFeatures = new LinkedList<>();
-                    writer = new StringWriter();
                 }
                 SimpleFeature feature = iterator.next();
                 featureType = feature.getFeatureType();
                 simpleFeatures.add(feature);
             }
             SimpleFeatureCollection collection = new ListFeatureCollection(featureType, simpleFeatures);
-            featureJSON.writeFeatureCollection(collection, writer);
-            String geoJson = writer.toString();
             //最后一批次
-            if (StringUtils.isNotBlank(geoJson)) {
-                geoJsonList.add(geoJson);
+            if (simpleFeatures.size() > 0) {
+                int finalCount1 = count;
+                Future<Boolean> future = executorService.submit(() -> {
+                    try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(new File(geoJsonDir, index + ".geojson")))) {
+                        log.info("拆分文件[ {} / {} ]，文件[ {} ]", index.get(), finalCount1, file.getAbsolutePath());
+                        featureJSON.writeFeatureCollection(collection, outputStream);
+                        outputStream.flush();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                    return true;
+                });
+                futures.add(future);
             }
+
+
+            for (Future<Boolean> future : futures) {
+                future.get();
+            }
+            executorService.shutdown();
+            executorService.awaitTermination(2, TimeUnit.DAYS);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+
         log.info("Shape文件[ {} ] 转 GeoJson 完成", file.getAbsolutePath());
-        try {
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return geoJsonList;
+
     }
 
-    private void geoJson2Shape(List<String> geojsonStrList, File file) {
+    private void geoJson2Shape(File convertedGeoJsonDir, File file) {
 
         try {
             String fileName = file.getName();
@@ -169,14 +243,24 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             String geojsonType = null;
             Class<?> geoType = null;
 
-            List<Map> featuresList = new ArrayList<>(geojsonStrList.size());
 
-            log.info("正则查找最大属性集");
-            for (String geoJson : geojsonStrList) {
+            log.info("正在查找最大属性集");
+            File[] geojsonStrFiles = convertedGeoJsonDir.listFiles();
+//            for (int k = 0; k < geojsonStrFiles.length; k++) {
+//                log.info("正在查找最大属性集,[ {} / {}]", k + 1, geojsonStrFiles.length);
+            File geojsonStrFile0 = geojsonStrFiles[0];
+
+            try (BufferedReader reader = new BufferedReader(new FileReader(geojsonStrFile0))) {
+                StringBuilder builder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+
+                    builder.append(line);
+                }
+                String geoJson = builder.toString();
 
                 Map<String, Object> geojsonMap = JSONObject.parseObject(geoJson, Map.class);
                 List<Map> features = (List<Map>) geojsonMap.get("features");
-                featuresList.addAll(features);
 
                 Map geojsonExample = features.get(0);
                 if (geoType == null) {
@@ -190,7 +274,10 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                         mapFields.put(key, type);
                     }
                 }
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
+//            }
             for (String key : mapFields.keySet()) {
                 tb.add(key, mapFields.get(key));
             }
@@ -225,41 +312,67 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                     getFeatureWriter(ds.getTypeNames()[0], Transaction.AUTO_COMMIT);
 
             log.info("开始输出写入 shp 文件，[{}]", file.getAbsolutePath());
-            int index = 1;
-            for (Map oneGeojson : featuresList) {
-                log.info("开始输出[ {} / {} ]要素，写入shp文件，[ {} ]", index++, featuresList.size(), file.getAbsolutePath());
-                Map<String, Object> attributes = (Map<String, Object>) oneGeojson.get("properties");
-                String strFeature = JSONObject.toJSONString(oneGeojson);
-                Reader reader = new StringReader(strFeature);
-                SimpleFeature feature = writer.next();
 
-                switch (geojsonType) {
-                    case "Point":
-                        feature.setAttribute("the_geom", geometryJSON.readPoint(reader));
-                        break;
-                    case "MultiPoint":
-                        feature.setAttribute("the_geom", geometryJSON.readMultiPoint(reader));
-                        break;
-                    case "LineString":
-                        feature.setAttribute("the_geom", geometryJSON.readLine(reader));
-                        break;
-                    case "MultiLineString":
-                        feature.setAttribute("the_geom", geometryJSON.readMultiLine(reader));
-                        break;
-                    case "Polygon":
-                        feature.setAttribute("the_geom", geometryJSON.readPolygon(reader));
-                        break;
-                    case "MultiPolygon":
-                        feature.setAttribute("the_geom", geometryJSON.readMultiPolygon(reader));
-                        break;
-                    default:
-                }
 
-                for (String key : attributes.keySet()) {
-                    feature.setAttribute(key, attributes.get(key));
+            ExecutorService executorService = tdtExecutor.getExecutorService();
+            for (int k = 0; k < geojsonStrFiles.length; k++) {
+                File geojsonStrFile = geojsonStrFiles[k];
+
+                try (BufferedReader bufferedReader = new BufferedReader(new FileReader(geojsonStrFile))) {
+                    StringBuilder builder = new StringBuilder();
+                    String line;
+                    while ((line = bufferedReader.readLine()) != null) {
+                        builder.append(line);
+                    }
+                    String geoJson = builder.toString();
+
+                    Map<String, Object> geojsonMap = JSONObject.parseObject(geoJson, Map.class);
+                    List<Map> features = (List<Map>) geojsonMap.get("features");
+                    int f = k + 1;
+                    int index = 1;
+                    String name = geojsonStrFile.getName();
+                    for (Map oneGeojson : features) {
+
+                        log.info("开始输出文件[ {} -> {} / {} ], 要素[ {} / {} ]，写入shp文件，[ {} ]", name, f, geojsonStrFiles.length, index++, features.size(), file.getAbsolutePath());
+                        Map<String, Object> attributes = (Map<String, Object>) oneGeojson.get("properties");
+                        String strFeature = JSONObject.toJSONString(oneGeojson);
+                        Reader reader = new StringReader(strFeature);
+                        SimpleFeature feature = writer.next();
+
+                        switch (geojsonType) {
+                            case "Point":
+                                feature.setAttribute("the_geom", geometryJSON.readPoint(reader));
+                                break;
+                            case "MultiPoint":
+                                feature.setAttribute("the_geom", geometryJSON.readMultiPoint(reader));
+                                break;
+                            case "LineString":
+                                feature.setAttribute("the_geom", geometryJSON.readLine(reader));
+                                break;
+                            case "MultiLineString":
+                                feature.setAttribute("the_geom", geometryJSON.readMultiLine(reader));
+                                break;
+                            case "Polygon":
+                                feature.setAttribute("the_geom", geometryJSON.readPolygon(reader));
+                                break;
+                            case "MultiPolygon":
+                                feature.setAttribute("the_geom", geometryJSON.readMultiPolygon(reader));
+                                break;
+                            default:
+                        }
+
+                        for (String key : attributes.keySet()) {
+                            feature.setAttribute(key, attributes.get(key));
+                        }
+                        writer.write();
+
+                    }
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
-                writer.write();
             }
+
             log.info("输出写入 shp 文件完成，[ {} ]", file.getAbsolutePath());
             writer.close();
             ds.dispose();
