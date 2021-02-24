@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -262,14 +261,6 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 } catch (ExecutionException e) {
                     e.printStackTrace();
                 }
-            }
-
-
-            try {
-                executorService.shutdown();
-                executorService.awaitTermination(2, TimeUnit.DAYS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             }
         }
         return baiDuGeoFeatures;

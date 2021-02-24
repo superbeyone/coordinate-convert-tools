@@ -31,7 +31,6 @@ import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -110,10 +109,10 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
 
             System.out.println();
             System.out.println();
-            log.info("===================== Shape ===============================");
+            log.info("================== Shape ========================");
             log.info("||\t\t\t处理完成第 [ {} / {} ]个任务\t\t\t||", num, shpList.size());
             log.info("||\t\t\t 耗时[ {} ] 毫秒 \t\t\t||", System.currentTimeMillis() - start);
-            log.info("===================== Shape ===============================\n\n");
+            log.info("================= Shape =========================\n\n");
 
         }
     }
@@ -210,8 +209,6 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             for (Future<Boolean> future : futures) {
                 future.get();
             }
-            executorService.shutdown();
-            executorService.awaitTermination(2, TimeUnit.DAYS);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -221,6 +218,7 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
 
     }
 
+    
     private void geoJson2Shape(File convertedGeoJsonDir, File file) {
 
         try {
@@ -239,6 +237,7 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
             tb.setCRS(DefaultGeographicCRS.WGS84);
             tb.setName("shapefile");
+            
 
             String geojsonType = null;
             Class<?> geoType = null;
@@ -278,6 +277,8 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                 ex.printStackTrace();
             }
 //            }
+            
+            
             for (String key : mapFields.keySet()) {
                 tb.add(key, mapFields.get(key));
             }
@@ -313,8 +314,6 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
 
             log.info("开始输出写入 shp 文件，[{}]", file.getAbsolutePath());
 
-
-            ExecutorService executorService = tdtExecutor.getExecutorService();
             for (int k = 0; k < geojsonStrFiles.length; k++) {
                 File geojsonStrFile = geojsonStrFiles[k];
 
@@ -364,9 +363,9 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                         for (String key : attributes.keySet()) {
                             feature.setAttribute(key, attributes.get(key));
                         }
-                        writer.write();
 
                     }
+                    writer.write();
 
                 } catch (Exception ex) {
                     ex.printStackTrace();

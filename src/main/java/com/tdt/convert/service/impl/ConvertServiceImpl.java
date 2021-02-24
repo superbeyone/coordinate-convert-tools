@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Mr.superbeyone
@@ -50,6 +52,8 @@ public class ConvertServiceImpl implements ConvertService {
             log.error("源数据文件夹[ {} ]不存在，请确认后，再进行操作......", tdtConfig.getInput());
             return;
         }
+        ExecutorService executorService = tdtExecutor.getExecutorService();
+
         long start = System.currentTimeMillis();
         List<File> fileList = getFileFromZip(inputFile, new ArrayList<>());
 
@@ -84,7 +88,12 @@ public class ConvertServiceImpl implements ConvertService {
             //shape
             shapeReaderService.readShape(shpList, outPutRoot);
         }
-
+        try {
+            executorService.shutdown();
+            executorService.awaitTermination(10, TimeUnit.DAYS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         checkOutPutDir(outPutRoot);
 
         long end = System.currentTimeMillis();
@@ -93,6 +102,7 @@ public class ConvertServiceImpl implements ConvertService {
         log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
         System.out.println();
         log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
+
 
     }
 
