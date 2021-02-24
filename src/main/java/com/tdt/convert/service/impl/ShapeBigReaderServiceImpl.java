@@ -305,7 +305,7 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                     geoType = Geometry.class;
             }
             tb.add("the_geom", geoType);
-
+            ds.setCharset(Charset.forName(tdtConfig.getCharset()));
             ds.createSchema(tb.buildFeatureType());
             log.info("查找最大属性集完成");
             //设置Writer
