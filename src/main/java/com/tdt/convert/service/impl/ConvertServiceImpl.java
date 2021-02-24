@@ -130,8 +130,13 @@ public class ConvertServiceImpl implements ConvertService {
             String name = inputFile.getName();
             if (StringUtils.endsWithIgnoreCase(name, ".zip")) {
                 File destDir = new File(inputFile.getParentFile(), name);
-                //解压
-                FileUtil.unpack2(inputFile, destDir, tdtConfig.getCharset());
+                try {
+                    //解压
+                    FileUtil.unpack2(inputFile, destDir, tdtConfig.getCharset());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    FileUtil.unpack2(inputFile, destDir, "GB2312");
+                }
                 getFileFromZip(destDir, files);
             } else if (StringUtils.endsWithIgnoreCase(name, ".geojson")
                     || StringUtils.endsWithIgnoreCase(name, ".json")) {
