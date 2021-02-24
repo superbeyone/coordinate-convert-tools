@@ -226,7 +226,11 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
 
     }
 
-    //获取Shp文件属性头信息
+    /**
+     * 获取Shp文件属性头信息
+     * @param file shp文件
+     * @return 属性头信息
+     */
     private List<AttributeDescriptor> getShapeFileHeader(File file) {
         ShapefileDataStoreFactory dataStoreFactory = new ShapefileDataStoreFactory();
         try {
