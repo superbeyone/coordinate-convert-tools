@@ -2,6 +2,7 @@ package com.tdt.convert.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.tdt.convert.config.TdtConfig;
+import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.service.GeoJsonReaderService;
 import com.tdt.convert.service.ShapeReaderService;
 import com.tdt.convert.thread.TdtExecutor;
@@ -80,8 +81,8 @@ public class ShapeReaderServiceImpl implements ShapeReaderService {
             String filePath = StringUtils.substringAfter(absolutePath, input);
             File outputShapeFile = new File(outPutRoot, filePath);
             String geoJson = convertShp2GeoJson(file, charset);
-
-            String resultJson = geoJsonReaderService.convertGeoJson(geoJson, absolutePath, num, shpList.size());
+            GeoRegion geoRegion = JSONObject.parseObject(geoJson, GeoRegion.class);
+            String resultJson = geoJsonReaderService.convertGeoJson(geoRegion, absolutePath, num, shpList.size());
             //输出shape
             geoJson2Shape(resultJson, outputShapeFile);
         }

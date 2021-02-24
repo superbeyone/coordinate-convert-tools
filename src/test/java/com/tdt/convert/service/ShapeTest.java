@@ -7,18 +7,24 @@ import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
 import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.shapefile.ShapefileDataStoreFactory;
+import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.store.ContentFeatureCollection;
 import org.geotools.data.store.ContentFeatureSource;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.feature.type.AttributeDescriptorImpl;
+import org.geotools.feature.type.GeometryTypeImpl;
 import org.geotools.geojson.feature.FeatureJSON;
 import org.geotools.geojson.geom.GeometryJSON;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.junit.jupiter.api.Test;
+import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.*;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,6 +119,12 @@ public class ShapeTest {
             tb.add("the_geom", geoType);
 
             for (String key : mapFields.keySet()) {
+                PropertyType type = null;
+                Property pro = null;
+                PropertyDescriptor propertyDescriptor = null;
+                AttributeDescriptorImpl attributeDescriptor = null;
+                tb.add(attributeDescriptor);
+
                 tb.add(key, mapFields.get(key));
             }
 
@@ -173,6 +185,46 @@ public class ShapeTest {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    @Test
+    public void testShapeReader() {
+        File file = new File("E:\\data\\shp\\test\\input\\roads\\gis_osm_roads_free_1.shp");
+        List<AttributeDescriptor> attributeDescriptorList = getShapeFileHeader(file);
+        for (AttributeDescriptor attributeDescriptor : attributeDescriptorList) {
+            System.out.println(attributeDescriptor.getLocalName());
+            AttributeType type = attributeDescriptor.getType();
+            if (type instanceof GeometryTypeImpl) {
+                System.out.println("+++");
+                GeometryTypeImpl geometryType = (GeometryTypeImpl) type;
+                Name name = geometryType.getName();
+                System.out.println(name.toString());
+                Class<?> binding = geometryType.getBinding();
+                System.out.println(binding);
+                System.out.println(binding == MultiLineString.class);
+            }
+
+
+        }
+        System.out.println(attributeDescriptorList.size());
+    }
+
+    private List<AttributeDescriptor> getShapeFileHeader(File file) {
+        ShapefileDataStoreFactory dataStoreFactory = new ShapefileDataStoreFactory();
+        try {
+            ShapefileDataStore sds = (ShapefileDataStore) dataStoreFactory.createDataStore(file.toURI().toURL());
+
+            sds.setCharset(Charset.forName("GBK"));
+            SimpleFeatureSource featureSource = sds.getFeatureSource();
+
+
+            sds.dispose();
+            return featureSource.getSchema().getAttributeDescriptors();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
     }
 
 }

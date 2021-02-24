@@ -2,9 +2,11 @@ package com.tdt.convert.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.tdt.convert.config.TdtConfig;
+import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.service.GeoJsonReaderService;
 import com.tdt.convert.service.ShapeBigReaderService;
 import com.tdt.convert.thread.TdtExecutor;
+import com.tdt.convert.utils.TimeUtil;
 import com.vividsolutions.jts.geom.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -15,14 +17,18 @@ import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.shapefile.ShapefileDataStoreFactory;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
+import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.store.ContentFeatureCollection;
 import org.geotools.data.store.ContentFeatureSource;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.feature.type.GeometryTypeImpl;
 import org.geotools.geojson.feature.FeatureJSON;
 import org.geotools.geojson.geom.GeometryJSON;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeDescriptor;
+import org.opengis.feature.type.AttributeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -101,23 +107,26 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             convertShp2GeoJson(file, charset, geoJsonDir);
 
 
-            convertGeoJson(shpList, num, geoJsonDir, convertedGeoJsonDir);
+            convertGeoJson(shpList.size(), num, geoJsonDir, convertedGeoJsonDir);
 
+            //获取shape属性头信息
+            List<AttributeDescriptor> attributeDescriptorList = getShapeFileHeader(file);
             //输出shape
-            geoJson2Shape(convertedGeoJsonDir, outputShapeFile);
+            geoJson2Shape(convertedGeoJsonDir, outputShapeFile, attributeDescriptorList);
 
 
             System.out.println();
             System.out.println();
             log.info("================== Shape ========================");
             log.info("||\t\t\t处理完成第 [ {} / {} ]个任务\t\t\t||", num, shpList.size());
-            log.info("||\t\t\t 耗时[ {} ] 毫秒 \t\t\t||", System.currentTimeMillis() - start);
+            log.info("||\t\t\t文件[ {} ]] \t\t\t||", file.getAbsolutePath());
+            log.info("||\t\t\t耗时[ {} ] \t\t\t||", TimeUtil.timeDiffer(System.currentTimeMillis(), start));
             log.info("================= Shape =========================\n\n");
 
         }
     }
 
-    private void convertGeoJson(List<File> shpList, int num, File geoJsonDir, File convertedGeoJsonDir) {
+    private void convertGeoJson(int shpFileCount, int num, File geoJsonDir, File convertedGeoJsonDir) {
 
         if (geoJsonDir.isDirectory()) {
             File[] srcGeoJsonFileArr = geoJsonDir.listFiles();
@@ -132,7 +141,8 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                             builder.append(line);
                         }
                         log.info("开始坐标转换 [ {} / {} ]，文件[ {} ]", i + 1, srcGeoJsonFileArr.length, srcGeoJsonFile.getAbsolutePath());
-                        String resultJson = geoJsonReaderService.convertGeoJson(builder.toString(), srcGeoJsonFile.getAbsolutePath(), num, shpList.size());
+                        GeoRegion geoRegion = JSONObject.parseObject(builder.toString(), GeoRegion.class);
+                        String resultJson = geoJsonReaderService.convertGeoJson(geoRegion, srcGeoJsonFile.getAbsolutePath(), num, shpFileCount);
                         outputStream.write(resultJson.getBytes());
                         outputStream.flush();
                         log.info("坐标转换完成 [ {} / {} ]，文件[ {} ]", i + 1, srcGeoJsonFileArr.length, srcGeoJsonFile.getAbsolutePath());
@@ -204,8 +214,6 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                 });
                 futures.add(future);
             }
-
-
             for (Future<Boolean> future : futures) {
                 future.get();
             }
@@ -218,10 +226,53 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
 
     }
 
-    
-    private void geoJson2Shape(File convertedGeoJsonDir, File file) {
+    //获取Shp文件属性头信息
+    private List<AttributeDescriptor> getShapeFileHeader(File file) {
+        ShapefileDataStoreFactory dataStoreFactory = new ShapefileDataStoreFactory();
+        try {
+            ShapefileDataStore sds = (ShapefileDataStore) dataStoreFactory.createDataStore(file.toURI().toURL());
+
+            sds.setCharset(Charset.forName("GB2312"));
+            SimpleFeatureSource featureSource = sds.getFeatureSource();
+
+
+            sds.dispose();
+            return featureSource.getSchema().getAttributeDescriptors();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
+    }
+
+
+    /**
+     * 获取空间类型
+     *
+     * @param attributeDescriptorList 头信息
+     * @return 空间信息
+     */
+    private Class<?> getGeometryClass(List<AttributeDescriptor> attributeDescriptorList) {
+        for (AttributeDescriptor attributeDescriptor : attributeDescriptorList) {
+            AttributeType type = attributeDescriptor.getType();
+            if (type instanceof GeometryTypeImpl) {
+                GeometryTypeImpl geometryType = (GeometryTypeImpl) type;
+                return geometryType.getBinding();
+            }
+        }
+        return Geometry.class;
+    }
+
+    /**
+     * 输出Shape文件
+     *
+     * @param convertedGeoJsonDir     geoJson文件夹
+     * @param file                    shp文件
+     * @param attributeDescriptorList 头信息
+     */
+    private void geoJson2Shape(File convertedGeoJsonDir, File file, List<AttributeDescriptor> attributeDescriptorList) {
 
         try {
+            log.info("开始初始化shape文件");
             String fileName = file.getName();
             if (!StringUtils.endsWithIgnoreCase(fileName, ".shp")) {
                 file = new File(file.getParentFile(), fileName + ".shp");
@@ -232,82 +283,20 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             params.put(ShapefileDataStoreFactory.URLP.key, file.toURI().toURL());
             ShapefileDataStore ds = (ShapefileDataStore) new ShapefileDataStoreFactory().createNewDataStore(params);
 
-            Map<String, Class> mapFields = new HashMap(64);
             //定义图形信息和属性信息
             SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
             tb.setCRS(DefaultGeographicCRS.WGS84);
             tb.setName("shapefile");
-            
 
-            String geojsonType = null;
-            Class<?> geoType = null;
+            tb.addAll(attributeDescriptorList);
+            //获取空间类型
+            Class<?> geometryTypeClass = getGeometryClass(attributeDescriptorList);
 
 
-            log.info("正在查找最大属性集");
             File[] geojsonStrFiles = convertedGeoJsonDir.listFiles();
-//            for (int k = 0; k < geojsonStrFiles.length; k++) {
-//                log.info("正在查找最大属性集,[ {} / {}]", k + 1, geojsonStrFiles.length);
-            File geojsonStrFile0 = geojsonStrFiles[0];
-
-            try (BufferedReader reader = new BufferedReader(new FileReader(geojsonStrFile0))) {
-                StringBuilder builder = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-
-                    builder.append(line);
-                }
-                String geoJson = builder.toString();
-
-                Map<String, Object> geojsonMap = JSONObject.parseObject(geoJson, Map.class);
-                List<Map> features = (List<Map>) geojsonMap.get("features");
-
-                Map geojsonExample = features.get(0);
-                if (geoType == null) {
-                    geojsonType = ((Map) geojsonExample.get("geometry")).get("type").toString();
-                }
-                for (int i = 0; i < features.size(); i++) {
-                    Map oneGeoJsonMap = features.get(i);
-                    Map<String, Object> attributes = (Map<String, Object>) oneGeoJsonMap.get("properties");
-                    for (String key : attributes.keySet()) {
-                        Class type = attributes.get(key).getClass();
-                        mapFields.put(key, type);
-                    }
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-//            }
-            
-            
-            for (String key : mapFields.keySet()) {
-                tb.add(key, mapFields.get(key));
-            }
-            switch (geojsonType) {
-                case "Point":
-                    geoType = Point.class;
-                    break;
-                case "MultiPoint":
-                    geoType = MultiPoint.class;
-                    break;
-                case "LineString":
-                    geoType = LineString.class;
-                    break;
-                case "MultiLineString":
-                    geoType = MultiLineString.class;
-                    break;
-                case "Polygon":
-                    geoType = Polygon.class;
-                    break;
-                case "MultiPolygon":
-                    geoType = MultiPolygon.class;
-                    break;
-                default:
-                    geoType = Geometry.class;
-            }
-            tb.add("the_geom", geoType);
-            ds.setCharset(Charset.forName(tdtConfig.getCharset()));
+            ds.setCharset(Charset.forName("GB2312"));
             ds.createSchema(tb.buildFeatureType());
-            log.info("查找最大属性集完成");
+            log.info("shape文件初始化完成");
             //设置Writer
             FeatureWriter<SimpleFeatureType, SimpleFeature> writer = ds.
                     getFeatureWriter(ds.getTypeNames()[0], Transaction.AUTO_COMMIT);
@@ -338,26 +327,20 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                         Reader reader = new StringReader(strFeature);
                         SimpleFeature feature = writer.next();
 
-                        switch (geojsonType) {
-                            case "Point":
-                                feature.setAttribute("the_geom", geometryJSON.readPoint(reader));
-                                break;
-                            case "MultiPoint":
-                                feature.setAttribute("the_geom", geometryJSON.readMultiPoint(reader));
-                                break;
-                            case "LineString":
-                                feature.setAttribute("the_geom", geometryJSON.readLine(reader));
-                                break;
-                            case "MultiLineString":
-                                feature.setAttribute("the_geom", geometryJSON.readMultiLine(reader));
-                                break;
-                            case "Polygon":
-                                feature.setAttribute("the_geom", geometryJSON.readPolygon(reader));
-                                break;
-                            case "MultiPolygon":
-                                feature.setAttribute("the_geom", geometryJSON.readMultiPolygon(reader));
-                                break;
-                            default:
+                        if (geometryTypeClass == Point.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readPoint(reader));
+                        } else if (geometryTypeClass == MultiPoint.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readMultiPoint(reader));
+                        } else if (geometryTypeClass == LineString.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readLine(reader));
+                        } else if (geometryTypeClass == MultiLineString.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readMultiLine(reader));
+                        } else if (geometryTypeClass == Polygon.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readPolygon(reader));
+                        } else if (geometryTypeClass == MultiPolygon.class) {
+                            feature.setAttribute("the_geom", geometryJSON.readMultiPolygon(reader));
+                        } else {
+                            feature.setAttribute("the_geom", geometryJSON.read(reader));
                         }
 
                         for (String key : attributes.keySet()) {

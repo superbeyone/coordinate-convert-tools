@@ -7,6 +7,7 @@ import com.tdt.convert.service.ShapeBigReaderService;
 import com.tdt.convert.thread.TdtExecutor;
 import com.tdt.convert.utils.CoordinateUtil;
 import com.tdt.convert.utils.FileUtil;
+import com.tdt.convert.utils.TimeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,11 +98,12 @@ public class ConvertServiceImpl implements ConvertService {
         checkOutPutDir(outPutRoot);
 
         long end = System.currentTimeMillis();
-        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
+        String timeStr = TimeUtil.timeDiffer(end, start);
+        log.info("=========================[ 程序执行结束 耗时[ {} ] ]=========================", timeStr);
         System.out.println();
-        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
+        log.info("=========================[ 程序执行结束 耗时[ {} ] ]=========================", timeStr);
         System.out.println();
-        log.info("=========================[ 程序执行结束 耗时[ {} 毫秒] ]=========================", end - start);
+        log.info("=========================[ 程序执行结束 耗时[ {} ] ]=========================", timeStr);
 
 
     }

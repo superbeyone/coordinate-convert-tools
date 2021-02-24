@@ -35,7 +35,7 @@ public class TdtExecutor {
         ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("T_%d").build();
         int maxCpu = count << 2;
         ThreadPoolExecutor executor = new ThreadPoolExecutor(count, maxCpu,
-                10, TimeUnit.HOURS, new LinkedBlockingQueue<>(100), threadFactory, new TdtRejectPolicy());
+                10, TimeUnit.DAYS, new LinkedBlockingQueue<>(50), threadFactory, new TdtRejectPolicy());
         this.executorService = executor;
         return executor;
     }

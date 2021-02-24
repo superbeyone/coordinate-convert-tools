@@ -9,6 +9,7 @@ import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.service.GeoJsonReaderService;
 import com.tdt.convert.thread.TdtExecutor;
 import com.tdt.convert.utils.CoordinateUtil;
+import com.tdt.convert.utils.TimeUtil;
 import com.tdt.convert.utils.UnicodeReader;
 import com.tdt.convert.utils.coding.EncodingDetect;
 import lombok.extern.slf4j.Slf4j;
@@ -62,31 +63,38 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
 
         taskCount.set(fileList.size());
         for (File file : fileList) {
-
+            long start = System.currentTimeMillis();
             String fileName = file.getName();
             int num = taskNum.incrementAndGet();
+            System.out.println();
+            System.out.println();
+            log.info("================== GeoJson ========================");
+            log.info("||\t\t\t开始处理第 [ {} / {} ]个任务\t\t\t||", num, fileList.size());
+            log.info("================= GeoJson =========================\n\n");
             try {
-                System.out.println();
-                System.out.println();
-                log.info("========================== GeoJson ======================================");
-                log.info("||\t\t\t开始处理第 [ {} / {} ]个任务\t\t\t||", num, fileList.size());
-                log.info("========================== GeoJson ==================================\n\n");
                 if (StringUtils.endsWithIgnoreCase(fileName, ".zip")) {
                     //从zip中处理数据
                     readFromZip(file, outPutRoot);
                 } else {
-                        String entryName = StringUtils.substringAfter(file.getAbsolutePath(), inputFile.getAbsolutePath());
-                        File outFile = new File(outPutRoot, entryName);
-                        File parentFile = outFile.getParentFile();
-                        if (!parentFile.exists()) {
-                            parentFile.mkdirs();
-                        }
-                        //处理GeoJson文件
-                        readFromGeoJson(file, outFile);
+                    String entryName = StringUtils.substringAfter(file.getAbsolutePath(), inputFile.getAbsolutePath());
+                    File outFile = new File(outPutRoot, entryName);
+                    File parentFile = outFile.getParentFile();
+                    if (!parentFile.exists()) {
+                        parentFile.mkdirs();
+                    }
+                    //处理GeoJson文件
+                    readFromGeoJson(file, outFile);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            System.out.println();
+            System.out.println();
+            log.info("================== GeoJson ========================");
+            log.info("||\t\t\t处理完成第 [ {} / {} ]个任务\t\t\t||", num, fileList.size());
+            log.info("||\t\t\t文件[ {} ]] \t\t\t||", file.getAbsolutePath());
+            log.info("||\t\t\t耗时[ {} ] \t\t\t||", TimeUtil.timeDiffer(System.currentTimeMillis(), start));
+            log.info("================= GeoJson =========================\n\n");
 
         }
 
@@ -304,17 +312,13 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
     }
 
     @Override
-    public String convertGeoJson(String geoJson, String path, int num, int count) {
-        log.info("Shape文件[ {} ] GeoJson 转 Java 对象", path);
-        GeoRegion geoRegion = JSONObject.parseObject(geoJson, GeoRegion.class);
+    public String convertGeoJson(GeoRegion geoRegion, String path, int num, int count) {
         this.taskNum.set(num);
         this.taskCount.set(count);
-        log.info("开始坐标转换，文件 [ {} ]", path);
         //经纬度转换
         geoRegion = convertTdtGeoRegion2BaiDu(geoRegion, path);
-        log.info("完成坐标转换，文件 [ {} ]", path);
         if (geoRegion == null) {
-            System.out.println("-------------");
+            log.error("文件[{}]坐标转换失败，对象为空", path);
         }
         return JSON.toJSONString(geoRegion);
     }

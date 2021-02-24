@@ -1,5 +1,7 @@
 package com.tdt.convert.service;
 
+import com.tdt.convert.entity.GeoRegion;
+
 import java.io.File;
 import java.util.List;
 
@@ -15,6 +17,6 @@ public interface GeoJsonReaderService {
 
     void readGeoJson(List<File> fileList,File outPutRoot);
 
-    String convertGeoJson(String geoJson,String path,int num ,int count);
+    String convertGeoJson(GeoRegion geoRegion, String path, int num , int count);
 
 }
