@@ -243,8 +243,10 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
                 int finalNum = num;
                 Future<GeoFeatures> future = executorService.submit(() -> {
 
-                    log.info("\t--- 开始处理第[ {} ]条要素,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
-                            finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    if (log.isDebugEnabled()) {
+                        log.debug("\t--- 开始处理第[ {} ]条要素,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
+                                finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    }
                     //远程请求百度接口
 //                tdtFeature.setProperties(convertTdtGeoProperties2BaiDuRemote(tdtFeature.getProperties()));
                     //本地算法转换
@@ -252,14 +254,16 @@ public class GeoJsonReaderServiceImpl implements GeoJsonReaderService {
 
                     tdtFeature.setGeometry(convertTdtGeoGeometry2BaiDu(tdtFeature.getGeometry()));
 
-
-                    log.info("\t### 第[ {} ]条要素处理完成,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务", finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    if (log.isDebugEnabled()) {
+                        log.debug("\t### 第[ {} ]条要素处理完成,共[ {} ]条要素,来自文件 [ {} ] \t当前执行第[ {} ]个任务,共[ {} ]个任务",
+                                finalNum, tdtFeatures.size(), entryName, taskNum, taskCount);
+                    }
                     return tdtFeature;
                 });
                 futures.add(future);
             }
 
-            log.info("tdtFeatures:[ {} ],\t futures:[{}]", tdtFeatures.size(), futures.size());
+            
             for (Future<GeoFeatures> future : futures) {
                 try {
                     GeoFeatures tdtFeature = future.get();

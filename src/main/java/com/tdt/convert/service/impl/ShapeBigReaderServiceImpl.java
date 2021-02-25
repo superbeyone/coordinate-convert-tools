@@ -317,7 +317,7 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                         builder.append(line);
                     }
                     String geoJson = builder.toString();
-
+                    log.info("合并 GeoJson [ {} -> {} ]", geojsonStrFile.getName(), file.getName());
                     Map<String, Object> geojsonMap = JSONObject.parseObject(geoJson, Map.class);
                     List<Map> features = (List<Map>) geojsonMap.get("features");
                     int f = k + 1;
@@ -325,7 +325,9 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
                     String name = geojsonStrFile.getName();
                     for (Map oneGeojson : features) {
 
-                        log.info("开始输出文件[ {} -> {} / {} ], 要素[ {} / {} ]，写入shp文件，[ {} ]", name, f, geojsonStrFiles.length, index++, features.size(), file.getAbsolutePath());
+                        if (log.isDebugEnabled()) {
+                            log.info("开始输出文件[ {} -> {} / {} ], 要素[ {} / {} ]，写入shp文件，[ {} ]", name, f, geojsonStrFiles.length, index++, features.size(), file.getAbsolutePath());
+                        }
                         Map<String, Object> attributes = (Map<String, Object>) oneGeojson.get("properties");
                         String strFeature = JSONObject.toJSONString(oneGeojson);
                         Reader reader = new StringReader(strFeature);
