@@ -25,7 +25,7 @@ public class TdtConfig {
      */
     private String input;
 
-    private boolean delTempFile;
+    private boolean delTempFile = true;
 
     /**
      * 输出路径
