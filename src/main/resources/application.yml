@@ -13,6 +13,7 @@ logging:
 tdt:
   convert:
     charset: UTF-8   # 文件读取字符编码 GB2312 UTF-8 GBK
+    delTempFile: false
     # geoJson文件根路径
     input: E:\data\shp\test\input\roads
     # 输出路径

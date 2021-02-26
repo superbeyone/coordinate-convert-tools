@@ -25,6 +25,8 @@ public class TdtConfig {
      */
     private String input;
 
+    private boolean delTempFile;
+
     /**
      * 输出路径
      */
@@ -59,6 +61,14 @@ public class TdtConfig {
         } else {
             this.input = input;
         }
+    }
+
+    public boolean isDelTempFile() {
+        return delTempFile;
+    }
+
+    public void setDelTempFile(boolean delTempFile) {
+        this.delTempFile = delTempFile;
     }
 
     public String getOutput() {

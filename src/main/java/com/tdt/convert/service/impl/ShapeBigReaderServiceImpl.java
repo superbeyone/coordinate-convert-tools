@@ -6,6 +6,7 @@ import com.tdt.convert.entity.GeoRegion;
 import com.tdt.convert.service.GeoJsonReaderService;
 import com.tdt.convert.service.ShapeBigReaderService;
 import com.tdt.convert.thread.TdtExecutor;
+import com.tdt.convert.utils.FileUtil;
 import com.tdt.convert.utils.TimeUtil;
 import com.vividsolutions.jts.geom.*;
 import lombok.extern.slf4j.Slf4j;
@@ -113,7 +114,14 @@ public class ShapeBigReaderServiceImpl implements ShapeBigReaderService {
             List<AttributeDescriptor> attributeDescriptorList = getShapeFileHeader(file);
             //输出shape
             geoJson2Shape(convertedGeoJsonDir, outputShapeFile, attributeDescriptorList);
-
+            //删除临时文件
+            if (tdtConfig.isDelTempFile()) {
+                ExecutorService executorService = tdtExecutor.getExecutorService();
+                executorService.execute(() -> {
+                    log.info("异步删除临时文件 [ {} ]", outPutRoot_1_2);
+                    FileUtil.delAllFile(outPutRoot_1_2);
+                });
+            }
 
             System.out.println();
             System.out.println();
